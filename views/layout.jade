@@ -3,5 +3,7 @@ html
   head
     title= title
     link(rel='stylesheet', href='/stylesheets/style.css')
-  body
+    script(src='/javascript/mr.js')
+ 
+  body(onload='init();')
     block content

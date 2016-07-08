@@ -457,7 +457,7 @@ exports.movieTitle = function(req, res){
  */
 exports.rateMovie = function(req, res){
 	//var rating = { "id":req.body.id, "rating":req.body.rating};
-	userMovieRatingHash[req.body.id] = req.body.rating;
+	userMovieRatingHash[req.query.id] = parseInt(req.query.rating);
 	rateMoviesForUser(); // update the predicted ratings for this user
 	res.send( JSON.stringify(userMovieRatingHash));
 
