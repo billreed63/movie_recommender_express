@@ -27,7 +27,7 @@ var userMovieRatingHash = {
         "50": 8 // Usual Suspects, The (1995)
 };
 
-var sparkConf = new spark.SparkConf()
+var sparkConf = new spark.SparkConf(false)
 	.set("spark.executor.memory", "10g")
 	.set("spark.driver.memory", "6g")
 	.setMaster("local[*]")
