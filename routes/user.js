@@ -1,10 +1,12 @@
 var spark = require('/Users/billreed/eclairjs_dev/eclairjs-node/lib/index.js');
+//var spark = require('/Users/jbarbetta/Work/gitProjects/eclairjs/eclairjs-node/lib/index.js');
 
 //exports.list = {
 		exports.word_count = function(req, res){
 			var sc = new spark.SparkContext("local[*]", "foo");
 		
 			var file = '/Users/billreed/eclairjs_dev/eclairjs-node/examples/dream.txt';
+            //var file = '/Users/jbarbetta/Work/gitProjects/eclairjs/eclairjs-node/lib/index.js';
 		
 			// first argument is a new filename
 			if (process.argv.length > 2) {

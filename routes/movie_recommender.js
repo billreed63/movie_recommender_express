@@ -1,4 +1,5 @@
 var spark = require('/Users/billreed/eclairjs_dev/eclairjs-node/lib/index.js');
+//var spark = require('/Users/jbarbetta/Work/gitProjects/eclairjs/eclairjs-node/lib/index.js');
 
 var top25Recommendation;
 var new_ratings_model;
@@ -35,6 +36,9 @@ var sc = new spark.SparkContext(sparkConf);
 var sqlContext = new spark.sql.SQLContext(sc);
 var pathToSmallDataset = '/Users/billreed/eclairjs_dev/eclairjs-nashorn/examples/data/mllib/ml-latest-small';
 var pathToCompleteDataset = '/Users/billreed/eclairjs_dev/eclairjs-nashorn/examples/data/mllib/ml-latest-small';
+//var pathToSmallDataset = '/Users/jbarbetta/Work/gitProjects/eclairjs/eclairjs-node/examples/movie_data/ml-latest-small';
+//var pathToCompleteDataset = '/Users/jbarbetta/Work/gitProjects/eclairjs/eclairjs-node/examples/movie_data/ml-latest';
+//var pathToCompleteDataset = '/Users/jbarbetta/Work/gitProjects/eclairjs/eclairjs-node/examples/movie_data/ml-latest-small';
 
 var start = new Date().getTime();
 
@@ -282,7 +286,7 @@ small_ratings_raw_data.take(1).then(function(val) {
  * 
  * Updates the top25 movies for the user, this runs "in the background" after the user updates his ratings
  */
-function rateMoviesForUser() {
+function rateMoviesForUser(cb) {
 	//var p = new Promise(function (resolve, reject){
 		/*
 	    Now we need to rate some movies for the new user.
@@ -391,6 +395,7 @@ function rateMoviesForUser() {
 	   	       top25Recommendation = top_movies;
 	   	       console.log("top 25 updated");
 	   	       //resolve(top_movies);
+               if (cb) {cb(top_movies)};
 	          }, failureExit);
 		    });
 //	   });
@@ -427,8 +432,8 @@ exports.predictedRatingForMovie = function(req, res){
  */
 exports.movieID = function(req, res){
 	// Register the DataFrame as a table.
-	 //var col = complete_movies_titlesDF.col("id");
-	 var col2 = complete_movies_titlesDF.col("title");
+	//var col = complete_movies_titlesDF.col("id");
+	var col2 = complete_movies_titlesDF.col("title");
     var testCol = col2.contains(req.query.movie /*"Father of the Bride"*/);
     var result = complete_movies_titlesDF.filter(testCol);
 	result.take(10).then(function(r){
@@ -458,8 +463,12 @@ exports.movieTitle = function(req, res){
 exports.rateMovie = function(req, res){
 	//var rating = { "id":req.body.id, "rating":req.body.rating};
 	userMovieRatingHash[req.query.id] = parseInt(req.query.rating);
-	rateMoviesForUser(); // update the predicted ratings for this user
-	res.send( JSON.stringify(userMovieRatingHash));
-
-	
+    // update the predicted ratings for this user
+	rateMoviesForUser(function(updatedTop25){
+        //console.log("updatedTop25: ",JSON.stringify(updatedTop25));
+        res.send(JSON.stringify(updatedTop25));
+    });
+    //console.log("userMovieRatingHash: ",JSON.stringify(userMovieRatingHash));
+	//res.send(JSON.stringify(userMovieRatingHash));
 };
+

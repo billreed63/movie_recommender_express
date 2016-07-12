@@ -7,6 +7,54 @@ a {
   color: #00B7FF;
 }
  
+.wrapper {
+    display: -webkit-box;
+    display: -moz-box;
+    display: -ms-flexbox;
+    display: -webkit-flex;
+    display: flex;  
+  
+    -webkit-flex-flow: row wrap;
+    flex-flow: row wrap;
+  
+    font-weight: bold;
+    text-align: center;
+}
+
+.wrapper > * {
+    padding: 10px;
+    flex: 1 100%;
+}
+
+.main {
+    padding-left: 0px;
+}
+
+.main, .aside {
+    text-align: left;
+}
+
+@media all and (min-width: 600px) {
+    .aside { flex: 1 auto; }
+}
+
+@media all and (min-width: 800px) {
+    .main    { flex: 3 auto; }
+    /*.main    { flex: 3 0px; }*/
+    .main    { order: 1; }
+    .aside { order: 2; }
+}
+
+#movieSearchResults, 
+#top25Results {
+    padding-top: 20px;
+}
+
+#movieSearchResults > div, 
+#top25Results > div {
+    padding: 3px 0px;
+}
+
 .acidjs-rating-stars,
 .acidjs-rating-stars label::before
 {
