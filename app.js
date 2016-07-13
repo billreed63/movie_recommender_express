@@ -13,7 +13,8 @@ var express = require('express')
 var app = express();
 
 // all environments
-app.set('port', process.env.PORT || 3000);
+app.set('port',  process.env.VCAP_APP_PORT || 3000);
+app.set('host',  process.env.VCAP_APP_HOST || 'localhost');
 app.set('views', __dirname + '/views');
 app.set('view engine', 'jade');
 app.use(express.favicon());
@@ -37,6 +38,10 @@ app.get('/movieID', movie_recommender.movieID);
 app.get('/movieTitle', movie_recommender.movieTitle);
 app.post('/rateMovie', movie_recommender.rateMovie);
 
-http.createServer(app).listen(app.get('port'), function(){
-  console.log('Express server listening on port ' + app.get('port'));
-});
+http.createServer(app).listen(
+  app.get('port'), 
+  app.get('host'), 
+  function(){
+    console.log('Express server listening on port ' + app.get('port'));
+  }
+);

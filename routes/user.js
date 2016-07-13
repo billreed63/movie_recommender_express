@@ -1,4 +1,5 @@
-var spark = require('/Users/billreed/eclairjs_dev/eclairjs-node/lib/index.js');
+var spark = require('eclairjs');
+//var spark = require('/Users/billreed/eclairjs_dev/eclairjs-node/lib/index.js');
 //var spark = require('/Users/jbarbetta/Work/gitProjects/eclairjs/eclairjs-node/lib/index.js');
 
 //exports.list = {
