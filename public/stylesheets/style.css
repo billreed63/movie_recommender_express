@@ -60,11 +60,16 @@ a {
 {
     display: inline-block;
 }
- 
+
+ .acidjs-rating-stars.predicted input:checked ~ label
+{
+    color: #f0dfbb;
+}
+
 .acidjs-rating-stars label:hover,
 .acidjs-rating-stars label:hover ~ label
 {
-    color: #189800;
+    color: #189800 !important;
 }
  
 .acidjs-rating-stars *

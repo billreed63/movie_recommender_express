@@ -356,10 +356,10 @@ function rateMoviesForUser(cb) {
 		     */
 
 		    var new_user_recommendations_rating_title_and_count_RDD2 = new_user_recommendations_rating_title_and_count_RDD
-		        .map(function (t, Tuple3) {
-		            var x = new Tuple3(t._2()._1()._2(), t._2()._1()._1(), t._2()._2());
+		        .map(function (t, Tuple4) {
+		            var x = new Tuple4(t._2()._1()._2(), t._2()._1()._1(), t._2()._2(), t._1());
 		            return x;
-		        }, [spark.Tuple3]);
+		        }, [spark.Tuple4]);
 		    new_user_recommendations_rating_title_and_count_RDD2.take(3).then(function(result){
 		    	console.log("new_user_recommendations_rating_title_and_count_RDD2" + JSON.stringify(result));
 		    	
@@ -369,8 +369,8 @@ function rateMoviesForUser(cb) {
 
 
 		       var new_user_recommendations_rating_title_and_count_RDD2_filtered = new_user_recommendations_rating_title_and_count_RDD2
-		           .filter(function (tuple3) {
-		               if (tuple3._3() < 25) {
+		           .filter(function (tuple4) {
+		               if (tuple4._3() < 25) {
 		                   return false;
 		               } else {
 		                   return true;
@@ -382,9 +382,9 @@ function rateMoviesForUser(cb) {
 		        */
 
 		       new_user_recommendations_rating_title_and_count_RDD2_filtered
-		           .takeOrdered(25, function (tuple3_a, tuple3_b) {
-		               var aRate = tuple3_a._2();
-		               var bRate = tuple3_b._2();
+		           .takeOrdered(25, function (tuple4_a, tuple4_b) {
+		               var aRate = tuple4_a._2();
+		               var bRate = tuple4_b._2();
 		               return aRate > bRate ? -1 : aRate == bRate ? 0 : 1;
 
 	          }).then(function(top_movies){
@@ -402,6 +402,23 @@ function rateMoviesForUser(cb) {
 //	});
 
 };
+
+function predictRating(movies, callback) {
+	 /*
+    Another useful usecase is getting the predicted rating for a particular movie for a given user.
+    */
+	var m = [];
+	movies.forEach(function(movie){
+		m.push(new spark.Tuple2(0, movie._values[0]))
+	});
+   var my_movie = sc.parallelizePairs(m); // Quiz Show (1994)
+   var individual_movie_rating_RDD = new_ratings_model.predict(my_movie);
+   individual_movie_rating_RDD.take(10).then(function(result){
+ 	  console.log("Predicted rating for movie " + JSON.stringify(result));
+ 	  callback(result);
+
+   },failureExit);
+}
 
 /**
  * REST Service returns JSON
@@ -437,7 +454,22 @@ exports.movieID = function(req, res){
     var testCol = col2.contains(req.query.movie /*"Father of the Bride"*/);
     var result = complete_movies_titlesDF.filter(testCol);
 	result.take(10).then(function(r){
-		res.send( JSON.stringify(r));
+		predictRating(r, function(results){
+			var movies = []
+			r.forEach(function(movie){
+				var m = {}
+				m.id = movie._values[0];
+				m.title = movie._values[1];
+				results.forEach(function(pr){
+					if (pr.product == m.id) {
+						m.rating = pr.rating;
+					}
+				});
+				movies.push(m);
+			});
+			res.send( JSON.stringify(movies));
+		});
+		
      }, failureExit);
 };
 
@@ -466,7 +498,16 @@ exports.rateMovie = function(req, res){
     // update the predicted ratings for this user
 	rateMoviesForUser(function(updatedTop25){
         //console.log("updatedTop25: ",JSON.stringify(updatedTop25));
-        res.send(JSON.stringify(updatedTop25));
+		var top25 = [];
+		updatedTop25.forEach(function(movie) {
+			m = {};
+			m.id = movie[3];
+			m.title = movie[0];
+			m.rating = movie[1];
+			m.numberOfRatings = movie[2];
+			top25.push(m);
+		});
+        res.send(JSON.stringify(top25));
     });
     //console.log("userMovieRatingHash: ",JSON.stringify(userMovieRatingHash));
 	//res.send(JSON.stringify(userMovieRatingHash));

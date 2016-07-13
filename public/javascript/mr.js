@@ -66,6 +66,7 @@ function createRatingWidget(movie){
 	form.setAttribute("mr-id", movie.id);
 	form.onchange = function(e) {
 		var form = e.target.form;
+		form.parentNode.classList.remove('predicted');
 		var movieID = form.getAttribute('mr-id');
 		var value;
 		for (var i = 0; i < form.elements.length; i++) {
@@ -86,6 +87,10 @@ function createRatingWidget(movie){
 		input.id = groupId+"-"+i
 		input.type = 'radio';
 		input.name = 'groupId';
+		if (movie.rating && (parseInt(movie.rating) == (10 - i))) {
+			input.setAttribute('checked', true);
+			div.classList.add('predicted');
+		}
 		input.value = 10 - i;
 		form.appendChild(input);
 		var label = document.createElement("label");
@@ -107,11 +112,13 @@ function createTop25Widget(top25) {
     top25.forEach(function(movie, i){
         if (i < 10) {
             var div = document.createElement("div");
-            div.id = "mov_"+i;
+            div.id = "mov_"+movie.id;
             // Seems our dataset has weird leading double quotes - as per DF cleanup before display 
-            var text = document.createTextNode(movie[0].replace(/^\"/, ""));
+            var text = document.createTextNode(movie.title.replace(/^\"/, ""));
             div.appendChild(text);
             top25DivResults.appendChild(div);
+            var ratingWidget = createRatingWidget(movie);
+            div.appendChild(ratingWidget);
         } else {
             return;
         }
