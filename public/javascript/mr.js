@@ -64,21 +64,16 @@ function createRatingWidget(movie){
 	var form = document.createElement("form");
 	form.id = "starForm" + movie.id;
 	form.setAttribute("mr-id", movie.id);
-	form.onchange = function(e) {
-		var form = e.target.form;
-		form.parentNode.classList.remove('predicted');
-		var movieID = form.getAttribute('mr-id');
-		var value;
-		for (var i = 0; i < form.elements.length; i++) {
-			if (form.elements[i].type === 'radio' && form.elements[i].checked) {
-				// get value, set checked flag or do whatever you need to
-				value = form.elements[i].value;       
-			}
+	form.onclick = function(e) {
+		if (e.target.tagName == 'INPUT') {
+			var form = e.target.form;
+			form.parentNode.classList.remove('predicted');
+			var movieID = form.getAttribute('mr-id');
+			e.target.setAttribute('checked', true);
+			restService("post", "rateMovie?id="+movieID+"&rating="+e.target.value, function(result){
+            	createTop25Widget(result);
+			});
 		}
-		restService("post", "rateMovie?id="+movieID+"&rating="+value, function(result){
-            //console.log("result from rateMovie post: ",result);
-            createTop25Widget(result);
-		});
 	};
 	div.appendChild(form);
 	for (var i = 0; i < 10; i++) {

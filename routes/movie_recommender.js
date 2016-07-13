@@ -316,90 +316,80 @@ function rateMoviesForUser(cb) {
 	    Let's now get some recommendations
 	    */
 
-	   //  get just movie IDs
-	  // var new_user_ratings_ids = [];
-	   //var promises2 = [];
-//	   for (var i = 0; i < new_user_ratings.length; i++) {
-//	   	promises2.push(new_user_ratings[i].product());     
-//	   }
-//	   var x = Promise.all(promises2);
-//	   x.then(function(values){
-//	   	values.forEach(function(product) {
-//	   		new_user_ratings_ids.push(product);
-//	   	});
 	   	 // keep just those not on the ID list
-		    var new_user_unrated_movies_RDD = complete_movies_data
-		        .filter(function (tuple, new_user_ratings_ids) {
-		            if (new_user_ratings_ids.indexOf(tuple._1()) < 0) {
-		                return true;
-		            } else {
-		                return false;
-		            }
-		        }, [new_user_ratings_ids])
-		        .map(function (tuple, new_user_ID, Tuple2) {
-		            return new Tuple2(new_user_ID, tuple._1());
-		        }, [new_user_ID, spark.Tuple2]);
+	    var new_user_unrated_movies_RDD = complete_movies_data
+	        .filter(function (tuple, userMovieRatingHash) {
+	            if (userMovieRatingHash[tuple._1()]) {
+	            	// User has already rated this move to remove from list
+	                return false;
+	            } else {
+	            	// keep this movie
+	                return true;
+	            }
+	        }, [userMovieRatingHash])
+	        .map(function (tuple, new_user_ID, Tuple2) {
+	            return new Tuple2(new_user_ID, tuple._1());
+	        }, [new_user_ID, spark.Tuple2]);
 
-		    var new_user_recommendations_RDD = new_ratings_model.predict(new_user_unrated_movies_RDD);
+	    var new_user_recommendations_RDD = new_ratings_model.predict(new_user_unrated_movies_RDD);
 
-		    // Transform new_user_recommendations_RDD into pairs of the form (Movie ID, Predicted Rating)
-		    var new_user_recommendations_rating_RDD = new_user_recommendations_RDD
-		        .mapToPair(function (rating, Tuple2) {
-		            return new Tuple2(rating.product(), rating.rating());
-		        }, [spark.Tuple2]);
+	    // Transform new_user_recommendations_RDD into pairs of the form (Movie ID, Predicted Rating)
+	    var new_user_recommendations_rating_RDD = new_user_recommendations_RDD
+	        .mapToPair(function (rating, Tuple2) {
+	            return new Tuple2(rating.product(), rating.rating());
+	        }, [spark.Tuple2]);
 
-		    var new_user_recommendations_rating_title_and_count_RDD = new_user_recommendations_rating_RDD
-		        .join(complete_movies_titles)
-		        .join(movie_rating_counts_RDD);
-		    /*
-		     So we need to flat this down a bit in order to have (Title, Rating, Ratings Count).
-		     */
+	    var new_user_recommendations_rating_title_and_count_RDD = new_user_recommendations_rating_RDD
+	        .join(complete_movies_titles)
+	        .join(movie_rating_counts_RDD);
+	    /*
+	     So we need to flat this down a bit in order to have (Title, Rating, Ratings Count).
+	     */
 
-		    var new_user_recommendations_rating_title_and_count_RDD2 = new_user_recommendations_rating_title_and_count_RDD
-		        .map(function (t, Tuple4) {
-		            var x = new Tuple4(t._2()._1()._2(), t._2()._1()._1(), t._2()._2(), t._1());
-		            return x;
-		        }, [spark.Tuple4]);
-		    new_user_recommendations_rating_title_and_count_RDD2.take(3).then(function(result){
-		    	console.log("new_user_recommendations_rating_title_and_count_RDD2" + JSON.stringify(result));
-		    	
-		    	/*
-		        Finally, get the highest rated recommendations for the new user, filtering out movies with less than 25 ratings.
-		        */
+	    var new_user_recommendations_rating_title_and_count_RDD2 = new_user_recommendations_rating_title_and_count_RDD
+	        .map(function (t, Tuple4) {
+	            var x = new Tuple4(t._2()._1()._2(), t._2()._1()._1(), t._2()._2(), t._1());
+	            return x;
+	        }, [spark.Tuple4]);
+	    new_user_recommendations_rating_title_and_count_RDD2.take(3).then(function(result){
+	    	console.log("new_user_recommendations_rating_title_and_count_RDD2" + JSON.stringify(result));
+	    	
+	    	/*
+	        Finally, get the highest rated recommendations for the new user, filtering out movies with less than 25 ratings.
+	        */
 
 
-		       var new_user_recommendations_rating_title_and_count_RDD2_filtered = new_user_recommendations_rating_title_and_count_RDD2
-		           .filter(function (tuple4) {
-		               if (tuple4._3() < 25) {
-		                   return false;
-		               } else {
-		                   return true;
-		               }
-		           });
+	       var new_user_recommendations_rating_title_and_count_RDD2_filtered = new_user_recommendations_rating_title_and_count_RDD2
+	           .filter(function (tuple4) {
+	               if (tuple4._3() < 25) {
+	                   return false;
+	               } else {
+	                   return true;
+	               }
+	           });
 
-		       /*
-		        list top 25
-		        */
+	       /*
+	        list top 25
+	        */
 
-		       new_user_recommendations_rating_title_and_count_RDD2_filtered
-		           .takeOrdered(25, function (tuple4_a, tuple4_b) {
-		               var aRate = tuple4_a._2();
-		               var bRate = tuple4_b._2();
-		               return aRate > bRate ? -1 : aRate == bRate ? 0 : 1;
+	       new_user_recommendations_rating_title_and_count_RDD2_filtered
+	           .takeOrdered(25, function (tuple4_a, tuple4_b) {
+	               var aRate = tuple4_a._2();
+	               var bRate = tuple4_b._2();
+	               return aRate > bRate ? -1 : aRate == bRate ? 0 : 1;
 
-	          }).then(function(top_movies){
-	       	   console.log("TOP recommended movies (with more than 25 reviews):");
-	   	       for (var i = 0; i < top_movies.length; i++) {
-	   	           console.log(JSON.stringify(top_movies[i]));
-	   	       }
-	   	       top25Recommendation = top_movies;
-	   	       console.log("top 25 updated");
-	   	       //resolve(top_movies);
-               if (cb) {cb(top_movies)};
-	          }, failureExit);
-		    });
-//	   });
-//	});
+          }).then(function(top_movies){
+       	   console.log("TOP recommended movies (with more than 25 reviews):");
+   	       for (var i = 0; i < top_movies.length; i++) {
+   	           console.log(JSON.stringify(top_movies[i]));
+   	       }
+   	       top25Recommendation = top_movies;
+   	       console.log("top 25 updated");
+   	       //resolve(top_movies);
+           if (cb) {cb(top_movies)};
+          }, failureExit);
+	    });
+
 
 };
 
