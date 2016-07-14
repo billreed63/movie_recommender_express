@@ -2,6 +2,7 @@ var spark = require('eclairjs');
 //var spark = require('/Users/jbarbetta/Work/gitProjects/eclairjs/eclairjs-node/lib/index.js');
 
 var top25Recommendation;
+var dataCallback;
 var new_ratings_model;
 var complete_ratings_data
 var complete_movies_titlesDF;
@@ -458,6 +459,12 @@ exports.movieID = function(req, res){
 				movies.push(m);
 			});
 			res.send( JSON.stringify(movies));
+            // If this is result for a movieSearch send whatever current
+            // top25 is to websocket.
+            if (req.query.movieSearch === 'true' && top25Recommendation) {
+                //console.log("User movieSearch - send top25 to web socket");
+                handleTop25Update(top25Recommendation, true);
+            }
 		});
 		
      }, failureExit);
@@ -486,20 +493,29 @@ exports.rateMovie = function(req, res){
 	//var rating = { "id":req.body.id, "rating":req.body.rating};
 	userMovieRatingHash[req.query.id] = parseInt(req.query.rating);
     // update the predicted ratings for this user
-	rateMoviesForUser(function(updatedTop25){
-        //console.log("updatedTop25: ",JSON.stringify(updatedTop25));
-		var top25 = [];
-		updatedTop25.forEach(function(movie) {
-			m = {};
-			m.id = movie[3];
-			m.title = movie[0];
-			m.rating = movie[1];
-			m.numberOfRatings = movie[2];
-			top25.push(m);
-		});
-        res.send(JSON.stringify(top25));
-    });
-    //console.log("userMovieRatingHash: ",JSON.stringify(userMovieRatingHash));
-	//res.send(JSON.stringify(userMovieRatingHash));
+    // top25Update will be broadcast over websocket
+	rateMoviesForUser(handleTop25Update);
+    // send back userHash
+    res.send(JSON.stringify(userMovieRatingHash));
 };
 
+function handleTop25Update(updatedTop25, fromSearch){
+    //console.log("handleTop25Update: ",JSON.stringify(updatedTop25));
+    var top25 = [];
+    updatedTop25.forEach(function(movie) {
+        m = {};
+        m.id = movie[3];
+        m.title = movie[0];
+        m.rating = movie[1];
+        m.numberOfRatings = movie[2];
+        top25.push(m);
+    });
+    if (dataCallback) {dataCallback(JSON.stringify({type:'top25Update', data: top25, original25: fromSearch || false}));}
+}
+
+/**
+ * Start sending data updates to node server so it can farm out to clients attatched to websocket
+ */
+exports.startUpdates = function(cb) {
+    dataCallback = cb;
+};

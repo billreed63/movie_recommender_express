@@ -1,6 +1,27 @@
 /**
  * http://usejsdoc.org/
  */
+
+var port = location.port ? location.port : '80';
+var socket = new WebSocket("ws://"+location.hostname+":"+port);
+
+socket.onopen = function() {
+    // heart beat, stops bluemix from closing connections
+    window.setInterval(function() {
+      socket.send(JSON.stringify({heartbeat: true}));
+    }, 60000);
+};
+
+socket.onmessage = function(e) {
+    if (e.data) {
+        var data = JSON.parse(e.data);
+        if (data.type === 'top25Update') {
+            //console.log("Got top25 data.data: ",data.data);
+            createTop25Widget(data.data, data.original25);
+        }
+    }
+};
+
 function init() {
     var element = document.getElementById("stars");
 	element.innerHTML = "Enter title of movie you would like to rate: ";
@@ -33,7 +54,7 @@ function movieSearch(e) {
     // As per DF reset results with each new search instead of appending
     resetSearchResults("stars", "movieSearchResults");
     document.getElementById("top25").innerHTML = "";
-	restService('get', "movieID?movie="+e.target.value, function(results){
+	restService('get', "movieID?movie="+e.target.value+"&movieSearch=true", function(results){
 		console.log(results);
 		var movieSearchResults = document.getElementById("movieSearchResults");
 		results.forEach(function(movie) {
@@ -71,7 +92,8 @@ function createRatingWidget(movie){
 			var movieID = form.getAttribute('mr-id');
 			e.target.setAttribute('checked', true);
 			restService("post", "rateMovie?id="+movieID+"&rating="+e.target.value, function(result){
-            	createTop25Widget(result);
+                // Don't care about response here - will get top25 on websocket
+                //console.log("result from rateMovie post: ",result);
 			});
 		}
 	};
@@ -96,11 +118,13 @@ function createRatingWidget(movie){
  
 }
 
-function createTop25Widget(top25) {
+function createTop25Widget(top25, original25) {
     top25 = top25 && top25.length ? top25 : [];
     var top25Div = document.getElementById("top25");
     // replace any previous results with new ones
-    top25Div.innerHTML = "Based on your last rating may we also suggest these movies for you: ";
+    top25Div.innerHTML = original25 ? 
+        "May we also suggest these movies for you: " : 
+        "Based on your last rating you may also be interested in these movies: ";
     var top25DivResults = document.createElement("div");
     top25DivResults.id = "top25Results";
     top25Div.appendChild(top25DivResults);
