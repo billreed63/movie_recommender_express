@@ -6,7 +6,8 @@
 var express = require('express')
   , routes = require('./routes')
   , user = require('./routes/user')
-  , movie_recommender = require('./routes/movie_recommender')
+  , movie_recommender = require('./routes/movie_recommender/movie_recommender')
+  , geographical = require('./routes/geographical/maps')
   , http = require('http')
   , path = require('path')
   , WebSocketServer = require('ws').Server;
@@ -35,11 +36,18 @@ if ('development' == app.get('env')) {
 app.get('/', routes.index);
 app.get('/users', user.users);
 app.get('/word_count', user.word_count);
-app.get('/top25', movie_recommender.top25);
-app.get('/predictedRatingForMovie', movie_recommender.predictedRatingForMovie);
-app.get('/movieID', movie_recommender.movieID);
-app.get('/movieTitle', movie_recommender.movieTitle);
-app.post('/rateMovie', movie_recommender.rateMovie);
+// REST services for geographical
+app.get('/geographical/rest/housingAvgs', geographical.housingAvgs);
+// web UI for geographical
+app.get('/geographical/maps', geographical.maps);
+//REST services for movie_recommender
+app.get('/movie_recommender/rest/top25', movie_recommender.top25);
+app.get('/movie_recommender/rest/predictedRatingForMovie', movie_recommender.predictedRatingForMovie);
+app.get('/movie_recommender/rest/movieID', movie_recommender.movieID);
+app.get('/movie_recommender/rest/movieTitle', movie_recommender.movieTitle);
+app.post('/movie_recommender/rest/rateMovie', movie_recommender.rateMovie);
+// web UI for movie_recommender
+app.get('/movie_recommender/rate', movie_recommender.rate);
 
 var server = http.createServer(app).listen(
   app.get('port'), 

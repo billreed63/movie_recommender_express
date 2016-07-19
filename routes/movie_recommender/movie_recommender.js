@@ -2,6 +2,7 @@ var spark = require('eclairjs');
 //var spark = require('/Users/jbarbetta/Work/gitProjects/eclairjs/eclairjs-node/lib/index.js');
 
 var top25Recommendation;
+var rebuildingTop25 = 'complete';
 var dataCallback;
 var new_ratings_model;
 var complete_ratings_data
@@ -288,7 +289,8 @@ small_ratings_raw_data.take(1).then(function(val) {
  * Updates the top25 movies for the user, this runs "in the background" after the user updates his ratings
  */
 function rateMoviesForUser(cb) {
-	//var p = new Promise(function (resolve, reject){
+		rebuildTop25 = 'inProgress';
+
 		/*
 	    Now we need to rate some movies for the new user.
 	    */
@@ -387,10 +389,12 @@ function rateMoviesForUser(cb) {
    	       top25Recommendation = top_movies;
    	       console.log("top 25 updated");
    	       //resolve(top_movies);
-           if (cb) {cb(top_movies)};
+           if (cb) {
+        	   cb(top_movies)
+    	   };
           }, failureExit);
 	    });
-
+	    
 
 };
 
@@ -415,14 +419,18 @@ function predictRating(movies, callback) {
  * REST Service returns JSON
  */
 exports.top25 = function(req, res){
-	res.send("Top 25 " + JSON.stringify(top25Recommendation));
-
+	if (top25Recommendation) {
+		res.send("Top 25 " + JSON.stringify(top25Recommendation));
+	} else {
+		res.send( JSON.stringify({"message": "Still building modles, try again later."}));
+	}
 };
 
 /**
  * REST Service returns JSON
  */
 exports.predictedRatingForMovie = function(req, res){
+	if (top25Recommendation) {
 	// Register the DataFrame as a table.
 		var id = parseInt(req.query.id); // FIXME get returns a promise, why? the data is right in the object
 		console.log("id " + id);
@@ -431,6 +439,9 @@ exports.predictedRatingForMovie = function(req, res){
 	     individual_movie_rating_RDD.take(1).then(function(result){
 		 res.send( JSON.stringify(result));
 	     }, failureExit);
+	} else {
+		res.send( JSON.stringify({"message": "Still building modles, try again later."}));
+	}
 
 };
 
@@ -439,35 +450,40 @@ exports.predictedRatingForMovie = function(req, res){
  * Returns movies that have the words in their title
  */
 exports.movieID = function(req, res){
-	// Register the DataFrame as a table.
-	//var col = complete_movies_titlesDF.col("id");
-	var col2 = complete_movies_titlesDF.col("title");
-    var testCol = col2.contains(req.query.movie /*"Father of the Bride"*/);
-    var result = complete_movies_titlesDF.filter(testCol);
-	result.take(10).then(function(r){
-		predictRating(r, function(results){
-			var movies = []
-			r.forEach(function(movie){
-				var m = {}
-				m.id = movie._values[0];
-				m.title = movie._values[1];
-				results.forEach(function(pr){
-					if (pr.product == m.id) {
-						m.rating = pr.rating;
-					}
+	if (top25Recommendation) {
+		// Register the DataFrame as a table.
+		//var col = complete_movies_titlesDF.col("id");
+		var col2 = complete_movies_titlesDF.col("title");
+	    var testCol = col2.contains(req.query.movie /*"Father of the Bride"*/);
+	    var result = complete_movies_titlesDF.filter(testCol);
+		result.take(10).then(function(r){
+			predictRating(r, function(results){
+				var movies = []
+				r.forEach(function(movie){
+					var m = {}
+					m.id = movie._values[0];
+					m.title = movie._values[1];
+					results.forEach(function(pr){
+						if (pr.product == m.id) {
+							m.rating = pr.rating;
+						}
+					});
+					movies.push(m);
 				});
-				movies.push(m);
+				res.send( JSON.stringify(movies));
+	            // If this is result for a movieSearch send whatever current
+	            // top25 is to websocket.
+	            if (req.query.movieSearch === 'true' && top25Recommendation) {
+	                //console.log("User movieSearch - send top25 to web socket");
+	                handleTop25Update(top25Recommendation, true);
+	            }
 			});
-			res.send( JSON.stringify(movies));
-            // If this is result for a movieSearch send whatever current
-            // top25 is to websocket.
-            if (req.query.movieSearch === 'true' && top25Recommendation) {
-                //console.log("User movieSearch - send top25 to web socket");
-                handleTop25Update(top25Recommendation, true);
-            }
-		});
-		
-     }, failureExit);
+			
+	     }, failureExit);
+	} else {
+		res.send( JSON.stringify({"message": "Still building modles, try again later."}));
+	}
+	
 };
 
 /**
@@ -475,14 +491,18 @@ exports.movieID = function(req, res){
  * Returns for for the given id
  */
 exports.movieTitle = function(req, res){
-	// Register the DataFrame as a table.
-	 var col = complete_movies_titlesDF.col("id");
-	 //var col2 = complete_movies_titlesDF.col("title");
-    var testCol = col.equalTo(req.query.id);
-    var result = complete_movies_titlesDF.filter(testCol);
-	result.take(10).then(function(r){
-		res.send( JSON.stringify(r));
-     }, failureExit);
+	if (top25Recommendation) {
+		// Register the DataFrame as a table.
+		 var col = complete_movies_titlesDF.col("id");
+		 //var col2 = complete_movies_titlesDF.col("title");
+	    var testCol = col.equalTo(req.query.id);
+	    var result = complete_movies_titlesDF.filter(testCol);
+		result.take(10).then(function(r){
+			res.send( JSON.stringify(r));
+	     }, failureExit);
+	} else {
+		res.send( JSON.stringify({"message": "Still building modles, try again later."}));
+	}
 };
 
 /**
@@ -490,13 +510,23 @@ exports.movieTitle = function(req, res){
  * Updates the ratings movie ratings for this user and then re-run the movie recommender predictions
  */
 exports.rateMovie = function(req, res){
-	//var rating = { "id":req.body.id, "rating":req.body.rating};
-	userMovieRatingHash[req.query.id] = parseInt(req.query.rating);
-    // update the predicted ratings for this user
-    // top25Update will be broadcast over websocket
-	rateMoviesForUser(handleTop25Update);
-    // send back userHash
-    res.send(JSON.stringify(userMovieRatingHash));
+	if (top25Recommendation) {
+		//var rating = { "id":req.body.id, "rating":req.body.rating};
+		userMovieRatingHash[req.query.id] = parseInt(req.query.rating);
+	    // update the predicted ratings for this user
+	    // top25Update will be broadcast over websocket
+		if (rebuildingTop25 == 'complete') {
+			rebuildingTop25 = 'inprogress';
+			rateMoviesForUser(handleTop25Update);
+		} else {
+			rebuildingTop25 = 'needed';
+		}
+		
+	    // send back userHash
+	    res.send(JSON.stringify(userMovieRatingHash));
+	} else {
+		res.send( JSON.stringify({"message": "Still building modles, try again later."}));
+	}
 };
 
 function handleTop25Update(updatedTop25, fromSearch){
@@ -510,7 +540,16 @@ function handleTop25Update(updatedTop25, fromSearch){
         m.numberOfRatings = movie[2];
         top25.push(m);
     });
-    if (dataCallback) {dataCallback(JSON.stringify({type:'top25Update', data: top25, original25: fromSearch || false}));}
+    if (dataCallback) {
+    	dataCallback(JSON.stringify({type:'top25Update', data: top25, original25: fromSearch || false}));
+	}
+    if (rebuildingTop25 == 'needed') {
+    	rebuildingTop25 = 'inprogress';
+    	rateMoviesForUser(handleTop25Update);
+    } else {
+    	rebuildingTop25 = 'complete';
+    }
+
 }
 
 /**
@@ -518,4 +557,8 @@ function handleTop25Update(updatedTop25, fromSearch){
  */
 exports.startUpdates = function(cb) {
     dataCallback = cb;
+};
+
+exports.rate = function(req, res){
+  res.render('movie_recommender/rate', { title: 'Movie Recommender' });
 };

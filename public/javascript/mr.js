@@ -54,19 +54,26 @@ function movieSearch(e) {
     // As per DF reset results with each new search instead of appending
     resetSearchResults("stars", "movieSearchResults");
     document.getElementById("top25").innerHTML = "";
-	restService('get', "movieID?movie="+e.target.value+"&movieSearch=true", function(results){
+	restService('get', "movie_recommender/rest/movieID?movie="+e.target.value+"&movieSearch=true", function(results){
 		console.log(results);
 		var movieSearchResults = document.getElementById("movieSearchResults");
-		results.forEach(function(movie) {
+		if (Array.isArray(results)) {
+			results.forEach(function(movie) {
+				var div = document.createElement("div");
+				div.id = movie.id;
+				movieSearchResults.appendChild(div);
+				var title = document.createElement("div");
+				// Seems our dataset has weird leading double quotes - as per DF cleanup before display
+				title.textContent = movie.title.replace(/^\"/, "");
+				div.appendChild(title);
+				div.appendChild(createRatingWidget(movie));
+			});
+		} else {
 			var div = document.createElement("div");
-			div.id = movie.id;
+			div.textContent = results.message;
 			movieSearchResults.appendChild(div);
-			var title = document.createElement("div");
-            // Seems our dataset has weird leading double quotes - as per DF cleanup before display
-			title.textContent = movie.title.replace(/^\"/, "");
-			div.appendChild(title);
-			div.appendChild(createRatingWidget(movie));
-		});
+		}
+		
 	});
 }
 
@@ -91,7 +98,7 @@ function createRatingWidget(movie){
 			form.parentNode.classList.remove('predicted');
 			var movieID = form.getAttribute('mr-id');
 			e.target.setAttribute('checked', true);
-			restService("post", "rateMovie?id="+movieID+"&rating="+e.target.value, function(result){
+			restService("post", "movie_recommender/rest/rateMovie?id="+movieID+"&rating="+e.target.value, function(result){
                 // Don't care about response here - will get top25 on websocket
                 //console.log("result from rateMovie post: ",result);
 			});
